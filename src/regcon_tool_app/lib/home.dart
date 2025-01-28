@@ -16,6 +16,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<dynamic> _events = []; // Lista de eventos
   int _offset = 0; // Offset para la paginación
   bool _isLoading = false; // Para controlar la carga de más eventos
+  bool _hasMore = true; // Indica si hay más eventos por cargar
   final ScrollController _scrollController =
       ScrollController(); // Controlador de scroll
 
@@ -34,30 +35,44 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Método para cargar eventos desde la API
   Future<void> _loadEvents() async {
-    if (_isLoading) return; // Evitar múltiples solicitudes
+    if (_isLoading || !_hasMore)
+      return; // Evitar múltiples solicitudes o si no hay más eventos
 
     setState(() {
       _isLoading = true;
     });
 
-    final url =
-        Uri.parse('https://recgonback-8awa0rdv.b4a.run/events?offset=$_offset');
-    final response = await http.get(url);
+    try {
+      final url = Uri.parse(
+          'https://recgonback-8awa0rdv.b4a.run/events?offset=$_offset');
+      final response = await http.get(url);
 
-    if (response.statusCode == 200) {
-      final decodedResponse = json.decode(response.body); // Decodificar JSON
-      final List<dynamic> data =
-          decodedResponse['data']; // Obtener la lista de eventos
+      if (response.statusCode == 200) {
+        final decodedResponse = json.decode(response.body); // Decodificar JSON
+        final List<dynamic> data =
+            decodedResponse['data']; // Obtener la lista de eventos
+
+        setState(() {
+          _events.addAll(data); // Agregar los eventos a la lista
+          _offset += 10; // Incrementar el offset para la próxima página
+          _isLoading = false;
+
+          // Si no hay más datos, detener la paginación
+          if (data.isEmpty) {
+            _hasMore = false;
+          }
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+        throw Exception('Error al cargar los eventos');
+      }
+    } catch (e) {
       setState(() {
-        _events.addAll(data); // Agregar los eventos a la lista
-        _offset += 10; // Incrementar el offset para la próxima página
         _isLoading = false;
       });
-    } else {
-      setState(() {
-        _isLoading = false;
-      });
-      throw Exception('Error al cargar los eventos');
+      print(e); // Manejar el error si es necesario
     }
   }
 
