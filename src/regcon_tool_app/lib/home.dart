@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:regcon_tool_app/my_tickets.dart';
 import 'login.dart';
 import 'shared_prefs.dart';
-import 'dart:convert'; // Para manejar JSON
-import 'package:http/http.dart' as http; // Para hacer solicitudes HTTP
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'eventdescription.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,86 +14,64 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0; // Índice para la barra de navegación inferior
-  final List<dynamic> _events = []; // Lista de eventos
-  int _offset = 0; // Offset para la paginación
-  bool _isLoading = false; // Para controlar la carga de más eventos
-  bool _hasMore = true; // Indica si hay más eventos por cargar
-  final ScrollController _scrollController =
-      ScrollController(); // Controlador de scroll
+  int _selectedIndex = 0;
+  final List<dynamic> _events = [];
+  bool _isLoading = false;
+  bool _hasMore = true;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _loadEvents(); // Cargar eventos al iniciar
-    _scrollController.addListener(_scrollListener); // Escuchar el scroll
+    _loadEvents();
+    _scrollController.addListener(_scrollListener);
   }
 
   @override
   void dispose() {
-    _scrollController.dispose(); // Liberar el controlador de scroll
+    _scrollController.dispose();
     super.dispose();
   }
 
-  // Método para cargar eventos desde la API
   Future<void> _loadEvents() async {
-    if (_isLoading || !_hasMore)
-      return; // Evitar múltiples solicitudes o si no hay más eventos
+    if (_isLoading || !_hasMore) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      final url = Uri.parse(
-          'https://recgonback-8awa0rdv.b4a.run/events?offset=$_offset');
+      final url = Uri.parse("https://recgonback-8awa0rdv.b4a.run/all-events");
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
-        final decodedResponse = json.decode(response.body); // Decodificar JSON
-        final List<dynamic> data =
-            decodedResponse['data']; // Obtener la lista de eventos
+        final decodedResponse = json.decode(response.body);
+        final List<dynamic> data = decodedResponse['data'];
 
         setState(() {
-          _events.addAll(data); // Agregar los eventos a la lista
-          _offset += 10; // Incrementar el offset para la próxima página
+          _events.addAll(data);
           _isLoading = false;
-
-          // Si no hay más datos, detener la paginación
-          if (data.isEmpty) {
-            _hasMore = false;
-          }
+          if (data.isEmpty) _hasMore = false;
         });
       } else {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
         throw Exception('Error al cargar los eventos');
       }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      print(e); // Manejar el error si es necesario
+      setState(() => _isLoading = false);
+      print(e);
     }
   }
 
-  // Método para manejar el scroll y cargar más eventos
   void _scrollListener() {
     if (_scrollController.position.pixels ==
         _scrollController.position.maxScrollExtent) {
-      _loadEvents(); // Cargar más eventos cuando el usuario llegue al final
+      _loadEvents();
     }
   }
 
-  // Método para manejar el cambio de índice en la barra de navegación
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    setState(() => _selectedIndex = index);
   }
 
-  // Método para cerrar sesión
   Future<void> _logout() async {
     await SharedPrefs.clear();
     Navigator.pushReplacement(
@@ -104,12 +84,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor:
-            Color(0xFFEB6D1E), // Color naranja para la barra superior
+        backgroundColor: Color(0xFFEB6D1E),
         title: Row(
           children: [
             Image.asset(
-              'assets/logo.png', // Logo de la app
+              'assets/logo.png',
               height: 40,
               width: 40,
             ),
@@ -123,13 +102,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   fillColor: Colors.white.withOpacity(0.3),
                   contentPadding: EdgeInsets.symmetric(horizontal: 16),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius:
-                        BorderRadius.circular(20), // Bordes redondeados
+                    borderRadius: BorderRadius.circular(20),
                     borderSide: BorderSide(color: Colors.transparent),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius:
-                        BorderRadius.circular(20), // Bordes redondeados
+                    borderRadius: BorderRadius.circular(20),
                     borderSide: BorderSide(color: Colors.transparent),
                   ),
                 ),
@@ -144,7 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: _buildBody(), // Contenido principal de la pantalla
+      body: _buildBody(),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
@@ -171,90 +148,116 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Método para construir el contenido principal según la sección seleccionada
   Widget _buildBody() {
     switch (_selectedIndex) {
-      case 0: // Inicio
+      case 0:
         return _buildEventList();
-      case 1: // Mis boletos
-        return Center(child: Text('Mis boletos'));
-      case 2: // Favoritos
+      case 1:
+        return MyTicketsScreen();
+      case 2:
         return Center(child: Text('Favoritos'));
-      case 3: // Ajustes
+      case 3:
         return Center(child: Text('Ajustes de cuenta'));
       default:
         return Center(child: Text('Selecciona una opción'));
     }
   }
 
-  // Método para construir la lista de eventos
   Widget _buildEventList() {
     return ListView.builder(
-      controller: _scrollController, // Asignar el controlador de scroll
+      controller: _scrollController,
       padding: EdgeInsets.all(16),
-      itemCount: _events.length +
-          (_isLoading ? 1 : 0), // +1 para el indicador de carga
+      itemCount: _events.length + (_isLoading ? 1 : 0),
       itemBuilder: (context, index) {
         if (index == _events.length) {
           return Center(
-            child: CircularProgressIndicator(), // Indicador de carga al final
+            child: CircularProgressIndicator(),
           );
         }
 
         final event = _events[index];
-        return Card(
-          margin: EdgeInsets.only(bottom: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Image.network(
-                event['image'], // Imagen del evento
-                height: 150,
-                width: double.infinity,
-                fit: BoxFit.cover,
+
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => EventDescriptionScreen(event: event),
               ),
-              Padding(
-                padding: EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      event['name'], // Título del evento
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Fecha: ${event['event_date']}', // Fecha del evento
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Ubicación: ${event['location']}', // Ubicación del evento
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      event['description'], // Descripción del evento
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
+            );
+          },
+          child: Card(
+            margin: EdgeInsets.only(bottom: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Image.network(
+                  event['event_image'], // ✅ Cambié "image" a "event_image"
+                  height: 150,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
                 ),
-              ),
-            ],
+                Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        event['event_name'], // ✅ Cambié "name" a "event_name"
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Fecha: ${event['event_date']}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Ubicación: ${event['location']}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Categoría: ${event['category_name']}', // ✅ Cambié "event_category" a "category_name"
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.blueAccent,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Organizado por: ${event['workgroup_name']}', // ✅ Nuevo campo agregado
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.green[700],
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        event[
+                            'event_description'], // ✅ Cambié "description" a "event_description"
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'auth_service.dart';
 import 'home.dart';
+import 'register.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -189,6 +190,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   TextButton(
                     onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const RegisterScreen(),
+                        ),
+                      );
                       // Aquí puedes añadir la lógica para crear una cuenta
                     },
                     child: Text(
@@ -200,6 +207,26 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
+                  SizedBox(height: 20), // Espacio extra
+                  TextButton(
+                    child: Text(
+                      'Iniciar sin cuenta',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        color: Color(0xFFEB6D1E),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const HomeScreen(),
+                        ),
+                      );
+                      // Aquí puedes añadir la lógica para crear una cuenta
+                    },
+                  )
                 ],
               ),
             ),
