@@ -5,6 +5,7 @@ import 'shared_prefs.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'eventdescription.dart';
+import 'favorite.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -83,68 +84,57 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Color(0xFFEB6D1E),
-        title: Row(
-          children: [
-            Image.asset(
-              'assets/logo.png',
-              height: 40,
-              width: 40,
-            ),
-            SizedBox(width: 10),
-            Expanded(
-              child: TextField(
-                decoration: InputDecoration(
-                  hintText: 'Buscar eventos...',
-                  border: InputBorder.none,
-                  filled: true,
-                  fillColor: Colors.white.withOpacity(0.3),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    borderSide: BorderSide(color: Colors.transparent),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    borderSide: BorderSide(color: Colors.transparent),
-                  ),
+      appBar: _buildAppBar(context),
+      body: _buildBody(),
+      bottomNavigationBar: _buildBottomNav(),
+    );
+  }
+
+  AppBar _buildAppBar(BuildContext context) {
+    return AppBar(
+      backgroundColor: Color(0xFFEB6D1E),
+      leading: IconButton(
+        icon: Icon(Icons.arrow_back, color: Colors.white),
+        onPressed: () {
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context);
+          } else {
+            Navigator.pushReplacementNamed(
+                context, '/home'); // O la pantalla que desees
+          }
+        },
+      ),
+      title: Row(
+        children: [
+          Image.asset('assets/logo.png', height: 40, width: 40),
+          SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Buscar eventos...',
+                border: InputBorder.none,
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.3),
+                contentPadding: EdgeInsets.symmetric(horizontal: 16),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: BorderSide(color: Colors.transparent),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: BorderSide(color: Colors.transparent),
                 ),
               ),
             ),
-          ],
+          ),
+        ],
+      ),
+      actions: [
+        IconButton(
+          icon: Icon(Icons.logout),
+          onPressed: _logout,
         ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.logout),
-            onPressed: _logout,
-          ),
-        ],
-      ),
-      body: _buildBody(),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Inicio',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.confirmation_number),
-            label: 'Mis boletos',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite),
-            label: 'Favoritos',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Ajustes',
-          ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -155,7 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 1:
         return MyTicketsScreen();
       case 2:
-        return Center(child: Text('Favoritos'));
+        return InterestsScreen(); // Verifica que InterestsScreen esté bien importado
       case 3:
         return Center(child: Text('Ajustes de cuenta'));
       default:
@@ -170,13 +160,9 @@ class _HomeScreenState extends State<HomeScreen> {
       itemCount: _events.length + (_isLoading ? 1 : 0),
       itemBuilder: (context, index) {
         if (index == _events.length) {
-          return Center(
-            child: CircularProgressIndicator(),
-          );
+          return Center(child: CircularProgressIndicator());
         }
-
         final event = _events[index];
-
         return GestureDetector(
           onTap: () {
             Navigator.push(
@@ -192,7 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Image.network(
-                  event['event_image'], // ✅ Cambié "image" a "event_image"
+                  event['event_image'],
                   height: 150,
                   width: double.infinity,
                   fit: BoxFit.cover,
@@ -203,55 +189,34 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        event['event_name'], // ✅ Cambié "name" a "event_name"
+                        event['event_name'],
                         style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                            fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       SizedBox(height: 8),
-                      Text(
-                        'Fecha: ${event['event_date']}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
+                      Text('Fecha: ${event['event_date']}',
+                          style:
+                              TextStyle(fontSize: 14, color: Colors.grey[600])),
+                      SizedBox(height: 8),
+                      Text('Ubicación: ${event['location']}',
+                          style:
+                              TextStyle(fontSize: 14, color: Colors.grey[600])),
+                      SizedBox(height: 8),
+                      Text('Categoría: ${event['category_name']}',
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.blueAccent)),
+                      SizedBox(height: 8),
+                      Text('Organizado por: ${event['workgroup_name']}',
+                          style: TextStyle(
+                              fontSize: 14, color: Colors.green[700])),
                       SizedBox(height: 8),
                       Text(
-                        'Ubicación: ${event['location']}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Categoría: ${event['category_name']}', // ✅ Cambié "event_category" a "category_name"
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.blueAccent,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Organizado por: ${event['workgroup_name']}', // ✅ Nuevo campo agregado
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.green[700],
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        event[
-                            'event_description'], // ✅ Cambié "description" a "event_description"
+                        event['event_description'],
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -261,6 +226,21 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildBottomNav() {
+    return BottomNavigationBar(
+      currentIndex: _selectedIndex,
+      onTap: _onItemTapped,
+      type: BottomNavigationBarType.fixed,
+      items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
+        BottomNavigationBarItem(
+            icon: Icon(Icons.confirmation_number), label: 'Mis boletos'),
+        BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Favoritos'),
+        BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Ajustes'),
+      ],
     );
   }
 }
