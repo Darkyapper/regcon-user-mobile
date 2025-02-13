@@ -237,16 +237,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     const Locale("es", "ES"), // Para español
                               );
 
-                              if (pickedDate != null) {
-                                // Formatear la fecha a YYYY-MM-DD
-                                String formattedDate =
-                                    "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
+                              // Formatear la fecha a YYYY-MM-DD
+                              String formattedDate =
+                                  "${pickedDate?.year}-${pickedDate?.month.toString().padLeft(2, '0')}-${pickedDate?.day.toString().padLeft(2, '0')}";
 
-                                // Asignar la fecha al controlador
-                                setState(() {
-                                  _birthdayController.text = formattedDate;
-                                });
-                              }
+                              // Asignar la fecha al controlador
+                              setState(() {
+                                _birthdayController.text = formattedDate;
+                              });
                             },
                           ),
                         ),

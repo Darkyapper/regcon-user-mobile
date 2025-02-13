@@ -20,11 +20,17 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String>? savedTickets = prefs.getStringList('myTickets');
 
+    // Verifica que savedTickets no sea null y que tenga elementos
     if (savedTickets != null) {
       setState(() {
         tickets = savedTickets
             .map((e) => jsonDecode(e) as Map<String, dynamic>)
             .toList();
+      });
+    } else {
+      // Si no hay tickets guardados, inicializa la lista vacía
+      setState(() {
+        tickets = [];
       });
     }
   }

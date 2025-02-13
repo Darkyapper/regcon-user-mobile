@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
+import 'package:regcon_tool_app/shared_prefs.dart';
 
 class InterestsScreen extends StatefulWidget {
   const InterestsScreen({Key? key}) : super(key: key);
@@ -8,22 +10,75 @@ class InterestsScreen extends StatefulWidget {
 }
 
 class _InterestsScreenState extends State<InterestsScreen> {
-  final List<Map<String, dynamic>> interests = [
-    {'label': 'Música', 'icon': Icons.music_note, 'selected': false},
-    {'label': 'Comida', 'icon': Icons.restaurant, 'selected': false},
-    {'label': 'Trabajo', 'icon': Icons.work, 'selected': false},
-    {'label': 'Arte', 'icon': Icons.palette, 'selected': false},
-    {'label': 'Tecnología', 'icon': Icons.computer, 'selected': false},
-    {'label': 'Hobbies', 'icon': Icons.sports_esports, 'selected': false},
-    {'label': 'Educación', 'icon': Icons.school, 'selected': false},
-  ];
+  List<Map<String, dynamic>> interests = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInterests(); // Cargar las categorías de eventos
+  }
+
+  // Cargar categorías de eventos desde el servidor
+  Future<void> _loadInterests() async {
+    try {
+      final response = await Dio()
+          .get('https://recgonback-8awa0rdv.b4a.run/event-categories');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data['data'];
+        setState(() {
+          interests = data.map((category) {
+            return {'label': category['name'], 'selected': false};
+          }).toList();
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error al cargar intereses: $e');
+      setState(() => isLoading = false);
+    }
+  }
+
+  // Guardar preferencias del usuario en el servidor
+  Future<void> _saveUserPreferences() async {
+    final userId = await SharedPrefs.getUserId(); // Obtener el ID del usuario
+    if (userId == null) {
+      print('No se encontró el ID de usuario');
+      return;
+    }
+
+    List<String> selectedLabels = interests
+        .where((i) => i['selected'] == true)
+        .map((i) => i['label'] as String)
+        .toList();
+
+    try {
+      await Dio().put(
+        'https://recgonback-8awa0rdv.b4a.run/users/$userId/preferences',
+        data: {
+          'event_preferences': {
+            'selected_categories': selectedLabels,
+          },
+          'email_notifications': 'true',
+        },
+      );
+      print('Preferencias guardadas correctamente');
+      Navigator.pushReplacementNamed(context, '/home'); // Redirigir a Home
+    } catch (e) {
+      print('Error al guardar preferencias: $e');
+    }
+  }
+
+  // Omitir las preferencias y redirigir al home
+  void _skipPreferences() {
+    Navigator.pushReplacementNamed(context, '/home');
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          // Background decorative circles
           Positioned(
             top: -100,
             right: -100,
@@ -48,107 +103,98 @@ class _InterestsScreenState extends State<InterestsScreen> {
               ),
             ),
           ),
-          // Main content
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Close button
-                  Align(
-                    alignment: Alignment.topRight,
-                    child: IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ),
                   const SizedBox(height: 20),
-                  // Title
-                  const Text(
+                  Text(
                     '¡Escoge tus intereses!',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
                   ),
                   const SizedBox(height: 12),
-                  // Subtitle
-                  const Text(
+                  Text(
                     '¡Esto nos ayudará a encontrar los eventos adecuados para ti!',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.black87,
-                    ),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Colors.black87,
+                        ),
                   ),
                   const SizedBox(height: 32),
-                  // Interests grid
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 12,
-                    children: interests.map((interest) {
-                      return FilterChip(
-                        label: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              interest['icon'],
-                              size: 18,
-                              color: interest['selected']
-                                  ? Colors.white
-                                  : Colors.black87,
+                  Expanded(
+                    child: isLoading
+                        ? const Center(
+                            child: CircularProgressIndicator(
+                                color: Color(0xFFFF7F50)))
+                        : SingleChildScrollView(
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 12,
+                              children: interests.map((interest) {
+                                return FilterChip(
+                                  label: Text(
+                                    interest['label'],
+                                    style: TextStyle(
+                                      color: interest['selected']
+                                          ? Colors.white
+                                          : Colors.black87,
+                                    ),
+                                  ),
+                                  selected: interest['selected'],
+                                  onSelected: (bool selected) {
+                                    setState(() {
+                                      interest['selected'] = selected;
+                                    });
+                                  },
+                                  backgroundColor: Colors.grey[200],
+                                  selectedColor: const Color(0xFFFF7F50),
+                                  checkmarkColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
+                                );
+                              }).toList(),
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              interest['label'],
-                              style: TextStyle(
-                                color: interest['selected']
-                                    ? Colors.white
-                                    : Colors.black87,
-                              ),
-                            ),
-                          ],
-                        ),
-                        selected: interest['selected'],
-                        onSelected: (bool selected) {
-                          setState(() {
-                            interest['selected'] = selected;
-                          });
-                        },
-                        backgroundColor: Colors.grey[200],
-                        selectedColor: const Color(0xFFFF7F50),
-                        checkmarkColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                      );
-                    }).toList(),
+                          ),
                   ),
-                  const Spacer(),
-                  // Next button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        // Handle next button press
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFF7F50),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                        onPressed: _skipPreferences,
+                        child: const Text(
+                          'Omitir',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black54,
+                          ),
                         ),
                       ),
-                      child: const Text(
-                        'Siguiente',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                      ElevatedButton(
+                        onPressed: _saveUserPreferences,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFF7F50),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          'Siguiente',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),
