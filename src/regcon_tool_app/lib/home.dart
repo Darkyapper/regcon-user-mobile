@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:regcon_tool_app/my_tickets.dart';
-import 'login.dart';
-import 'shared_prefs.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'eventdescription.dart';
+import 'eventdescription.dart'; // Asegúrate de importar el EventDescriptionScreen
+import 'my_tickets.dart';
+import 'login.dart';
 import 'favorite.dart';
+import 'ticketqr_screen.dart'; // Importa la pantalla del QR
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -74,7 +75,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _logout() async {
-    await SharedPrefs.clear();
+    SharedPreferences prefs = await SharedPreferences
+        .getInstance(); // Obtener la instancia correctamente
+    await prefs
+        .clear(); // Ahora se puede llamar a clear() sobre la instancia obtenida
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => LoginScreen()),
@@ -99,8 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (Navigator.canPop(context)) {
             Navigator.pop(context);
           } else {
-            Navigator.pushReplacementNamed(
-                context, '/home'); // O la pantalla que desees
+            Navigator.pushReplacementNamed(context, '/home');
           }
         },
       ),
@@ -145,7 +148,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 1:
         return MyTicketsScreen();
       case 2:
-        return InterestsScreen(); // Verifica que InterestsScreen esté bien importado
+        return InterestsScreen();
       case 3:
         return Center(child: Text('Ajustes de cuenta'));
       default:
@@ -168,7 +171,9 @@ class _HomeScreenState extends State<HomeScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => EventDescriptionScreen(event: event),
+                builder: (context) => EventDescriptionScreen(
+                  event: event,
+                ),
               ),
             );
           },
