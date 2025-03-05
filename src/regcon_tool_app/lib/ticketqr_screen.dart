@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:share_plus/share_plus.dart';
 
 class TicketQRScreen extends StatefulWidget {
   final String ticketCode;
-  const TicketQRScreen({Key? key, required this.ticketCode}) : super(key: key);
+  final int ticketCategoryId; // Añadido ticketCategoryId
+
+  const TicketQRScreen({
+    Key? key,
+    required this.ticketCode,
+    required this.ticketCategoryId, // Asegúrate de que este parámetro esté aquí
+  }) : super(key: key);
 
   @override
   _TicketQRScreenState createState() => _TicketQRScreenState();
@@ -24,16 +29,13 @@ class _TicketQRScreenState extends State<TicketQRScreen> {
 
   Future<void> _generateQRCode() async {
     try {
-      final url = Uri.parse('https://tuapi.com/tickets/${widget.ticketCode}');
+      final url = Uri.parse(
+          'https://api.qrserver.com/v1/create-qr-code/?data=${widget.ticketCode}&size=200x200');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
-        final data = response.body;
-        final qrUrl =
-            'https://api.qrserver.com/v1/create-qr-code/?data=$ticketCode&size=200x200';
-
         setState(() {
-          ticketImageUrl = qrUrl;
+          ticketImageUrl = url.toString(); // Usamos la URL directamente
           isLoading = false;
         });
       } else {
@@ -88,7 +90,6 @@ class _TicketQRScreenState extends State<TicketQRScreen> {
                     children: [
                       _buildTicketCard(),
                       SizedBox(height: 24),
-                      _buildShareButton(),
                     ],
                   ),
                 ),
@@ -156,23 +157,6 @@ class _TicketQRScreenState extends State<TicketQRScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildShareButton() {
-    return ElevatedButton.icon(
-      icon: Icon(Icons.share),
-      label: Text('Compartir Ticket'),
-      onPressed: () {
-        Share.share('Tu ticket: $ticketCode');
-      },
-      style: ElevatedButton.styleFrom(
-        foregroundColor: Colors.white,
-        backgroundColor: Color(0xFFE67E22),
-        padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-        textStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
       ),
     );
   }

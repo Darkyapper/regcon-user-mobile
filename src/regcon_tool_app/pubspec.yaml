@@ -39,6 +39,7 @@ dependencies:
   share_plus: ^7.2.1
   uuid: ^3.0.4
   flutter_animate: ^4.1.1+1
+  image_picker: ^0.8.7+5
   
 
   

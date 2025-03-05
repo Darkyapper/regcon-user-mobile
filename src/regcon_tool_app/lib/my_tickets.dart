@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'ticketqr_screen.dart'; // Asegúrate de importar la pantalla de QR
 
 class MyTicketsScreen extends StatefulWidget {
   @override
@@ -84,43 +85,57 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                   ),
                   child: Card(
                     margin: EdgeInsets.only(bottom: 16),
-                    child: Row(
-                      children: [
-                        if (ticket['event_image'] !=
-                            null) // Verifica si la imagen existe
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: Image.network(
-                              ticket['event_image'],
-                              width: 100,
-                              height: 100,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return SizedBox(); // Si hay error, no muestra nada
-                              },
+                    child: GestureDetector(
+                      onTap: () {
+                        // Cuando el usuario toca el ticket, va a la pantalla QR
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => TicketQRScreen(
+                              ticketCode: ticket['ticket_code'],
+                              ticketCategoryId: ticket['category_id'],
                             ),
                           ),
-                        SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                ticket['event_name'] ?? 'Evento desconocido',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                        );
+                      },
+                      child: Row(
+                        children: [
+                          if (ticket['event_image'] !=
+                              null) // Verifica si la imagen existe
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.network(
+                                ticket['event_image'],
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return SizedBox(); // Si hay error, no muestra nada
+                                },
                               ),
-                              SizedBox(height: 5),
-                              Text(
-                                  "Fecha: ${ticket['event_date'] ?? 'No disponible'}"),
-                              Text(
-                                  "Ubicación: ${ticket['location'] ?? 'No disponible'}"),
-                            ],
+                            ),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  ticket['event_name'] ?? 'Evento desconocido',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: 5),
+                                Text(
+                                    "Fecha: ${ticket['event_date'] ?? 'No disponible'}"),
+                                Text(
+                                    "Ubicación: ${ticket['location'] ?? 'No disponible'}"),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 );

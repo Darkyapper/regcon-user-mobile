@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import 'package:uuid/uuid.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import 'package:uuid/uuid.dart';
 import 'ticketconfirmationScreen.dart';
 
 class EventDescriptionScreen extends StatefulWidget {
@@ -17,7 +18,10 @@ class EventDescriptionScreen extends StatefulWidget {
 
 class _EventDescriptionScreenState extends State<EventDescriptionScreen> {
   int availableTicketsCount = 0;
-  double ticketPrice = 0.0; // Precio del boleto
+  double ticketPrice = 0.0;
+  String ticketName = '';
+  String ticketDescription = '';
+  bool isTicketAvailable = true;
 
   @override
   void initState() {
@@ -27,75 +31,65 @@ class _EventDescriptionScreenState extends State<EventDescriptionScreen> {
 
   Future<void> _getTicketInformation() async {
     try {
-      final response = await http.get(
+      // Primero obtenemos el ticketcategory_id usando el event_id
+      final ticketEventResponse = await http.get(
         Uri.parse(
-          'https://reggonback-8awa0rdv.b4a.run/ticket-events/${widget.event['event_id']}',
+          'https://recgonback-8awa0rdv.b4a.run/ticket-events/${widget.event['event_id']}',
         ),
       );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        setState(() {
-          // Aquí ajustamos el parsing según los datos del backend
-          availableTicketsCount = data['data'][0]
-              ['available_tickets']; // Cantidad de boletos disponibles
-          ticketPrice =
-              data['data'][0]['ticket_price'] ?? 0.0; // Precio del boleto
-        });
-      } else {
-        setState(() {
-          availableTicketsCount = 0;
-          ticketPrice = 0.0;
-        });
+      if (ticketEventResponse.statusCode == 200) {
+        final ticketEventData = json.decode(ticketEventResponse.body);
+
+        // Verificar si tenemos datos
+        if (ticketEventData['data'].isNotEmpty) {
+          String ticketcategoryId =
+              ticketEventData['data'][0]['ticketcategory_id'].toString();
+
+          // Usamos el ticketcategory_id para obtener la información del boleto
+          final ticketCategoryResponse = await http.get(
+            Uri.parse(
+              'https://recgonback-8awa0rdv.b4a.run/ticket-categories-with-counts/$ticketcategoryId',
+            ),
+          );
+
+          if (ticketCategoryResponse.statusCode == 200) {
+            final ticketCategoryData = json.decode(ticketCategoryResponse.body);
+
+            setState(() {
+              availableTicketsCount =
+                  int.parse(ticketCategoryData['data']['ticket_count']);
+              ticketPrice = double.parse(ticketCategoryData['data']['price']);
+              ticketName = ticketCategoryData['data']['name'];
+              ticketDescription = ticketCategoryData['data']['description'];
+              isTicketAvailable = availableTicketsCount > 0;
+            });
+          }
+        }
       }
     } catch (e) {
       print('Error al obtener la información de boletos: $e');
       setState(() {
         availableTicketsCount = 0;
         ticketPrice = 0.0;
+        ticketName = 'Desconocido';
+        ticketDescription = 'No disponible';
+        isTicketAvailable = false;
       });
     }
   }
 
-  void _addToMyTickets(BuildContext context) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String> tickets = prefs.getStringList('myTickets') ?? [];
-
-    var uuid = Uuid();
-    String ticketCode = uuid.v4();
-
-    Map<String, dynamic> newTicket = {
-      'ticket_code': ticketCode,
-      'event_id': widget.event['event_id'],
-      'event_name': widget.event['event_name'],
-      'event_date': widget.event['event_date'],
-      'location': widget.event['location'],
-      'event_image': widget.event['event_image'],
-      'ticket_price': ticketPrice, // Precio del boleto
-      'available_tickets':
-          availableTicketsCount // Cantidad de boletos disponibles
-    };
-
-    tickets.add(jsonEncode(newTicket));
-    await prefs.setStringList('myTickets', tickets);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content:
-            Text("${widget.event['event_name']} añadido a Mis Boletos 🎟️"),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-
+  void _navigateToTicketConfirmation(BuildContext context) async {
+    // Navegar a TicketConfirmationScreen sin guardar automáticamente el boleto
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => TicketConfirmationScreen(
-          event: widget.event, // Pasando todos los detalles del evento
-          availableTicketsCount: availableTicketsCount, // Cantidad de boletos
-          ticketPrice: ticketPrice, // Precio del boleto
+          event: widget.event,
+          availableTicketsCount: availableTicketsCount,
+          ticketPrice: ticketPrice,
+          ticketName: ticketName, // Pasamos el nombre del boleto
+          ticketDescription: ticketDescription, // Descripción del boleto
         ),
       ),
     );
@@ -181,7 +175,9 @@ class _EventDescriptionScreenState extends State<EventDescriptionScreen> {
                   SizedBox(height: 30),
                   Center(
                     child: ElevatedButton(
-                      onPressed: () => _addToMyTickets(context),
+                      onPressed: isTicketAvailable
+                          ? () => _navigateToTicketConfirmation(context)
+                          : null, // El botón está deshabilitado si no hay boletos disponibles
                       style: ElevatedButton.styleFrom(
                         foregroundColor: Colors.white,
                         backgroundColor: Color(0xFFEB6D1E),
@@ -200,7 +196,9 @@ class _EventDescriptionScreenState extends State<EventDescriptionScreen> {
                                 color: Colors.white),
                             SizedBox(width: 8),
                             Text(
-                              "Añadir a Mis Boletos",
+                              isTicketAvailable
+                                  ? "Añadir a Mis Boletos"
+                                  : "Boletos agotados",
                               style: TextStyle(
                                   fontSize: 18, fontWeight: FontWeight.bold),
                             ),

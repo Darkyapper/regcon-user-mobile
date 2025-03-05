@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'eventdescription.dart'; // Asegúrate de importar el EventDescriptionScreen
+import 'package:intl/intl.dart';
+import 'eventdescription.dart';
 import 'my_tickets.dart';
 import 'login.dart';
-import 'favorite.dart';
-import 'ticketqr_screen.dart'; // Importa la pantalla del QR
+import 'profile_confg.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({Key? key}) : super(key: key);
 
   @override
   _HomeScreenState createState() => _HomeScreenState();
@@ -21,18 +21,45 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = false;
   bool _hasMore = true;
   final ScrollController _scrollController = ScrollController();
+  String _selectedFilter = 'Todos';
+  final TextEditingController _searchController = TextEditingController();
+  List<dynamic> _categories = [];
 
   @override
   void initState() {
     super.initState();
     _loadEvents();
+    _fetchCategories(); // Fetch categories for filtering
     _scrollController.addListener(_scrollListener);
+    _searchController
+        .addListener(_onSearchChanged); // Listen for search changes
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  // Fetch the categories from the server for filtering
+  Future<void> _fetchCategories() async {
+    try {
+      final url =
+          Uri.parse("https://recgonback-8awa0rdv.b4a.run/event-categories");
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final decodedResponse = json.decode(response.body);
+        setState(() {
+          _categories = decodedResponse['data'];
+        });
+      } else {
+        throw Exception('Error al cargar las categorías');
+      }
+    } catch (e) {
+      print('Error al obtener las categorías: $e');
+    }
   }
 
   Future<void> _loadEvents() async {
@@ -75,66 +102,47 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _logout() async {
-    SharedPreferences prefs = await SharedPreferences
-        .getInstance(); // Obtener la instancia correctamente
-    await prefs
-        .clear(); // Ahora se puede llamar a clear() sobre la instancia obtenida
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => LoginScreen()),
     );
   }
 
+  List<dynamic> _getFilteredEvents() {
+    // Filters events by category and search text
+    return _events.where((event) {
+      final matchesFilter = _selectedFilter == 'Todos' ||
+          event['category_name'] == _selectedFilter;
+      final matchesSearch = _searchController.text.isEmpty ||
+          event['event_name']
+              .toLowerCase()
+              .contains(_searchController.text.toLowerCase());
+      return matchesFilter && matchesSearch;
+    }).toList();
+  }
+
+  void _onSearchChanged() {
+    setState(() {}); // Trigger a rebuild when the search text changes
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _buildAppBar(context),
+      appBar: _buildAppBar(),
       body: _buildBody(),
       bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  AppBar _buildAppBar(BuildContext context) {
+  PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: Color(0xFFEB6D1E),
-      leading: IconButton(
-        icon: Icon(Icons.arrow_back, color: Colors.white),
-        onPressed: () {
-          if (Navigator.canPop(context)) {
-            Navigator.pop(context);
-          } else {
-            Navigator.pushReplacementNamed(context, '/home');
-          }
-        },
-      ),
-      title: Row(
-        children: [
-          Image.asset('assets/logo.png', height: 40, width: 40),
-          SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Buscar eventos...',
-                border: InputBorder.none,
-                filled: true,
-                fillColor: Colors.white.withOpacity(0.3),
-                contentPadding: EdgeInsets.symmetric(horizontal: 16),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide(color: Colors.transparent),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide(color: Colors.transparent),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+      title: Image.asset('assets/logo.png', height: 40),
       actions: [
         IconButton(
-          icon: Icon(Icons.logout),
+          icon: Icon(Icons.logout, color: Colors.white),
           onPressed: _logout,
         ),
       ],
@@ -144,94 +152,186 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildBody() {
     switch (_selectedIndex) {
       case 0:
-        return _buildEventList();
+        return _buildEventListPage();
       case 1:
         return MyTicketsScreen();
       case 2:
-        return InterestsScreen();
-      case 3:
-        return Center(child: Text('Ajustes de cuenta'));
+        return ProfileConfigurationScreen();
       default:
         return Center(child: Text('Selecciona una opción'));
     }
   }
 
+  Widget _buildEventListPage() {
+    return Column(
+      children: [
+        _buildSearchBar(),
+        _buildFilterBar(),
+        Expanded(child: _buildEventList()),
+      ],
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: 'Buscar eventos...',
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30),
+            borderSide: BorderSide.none,
+          ),
+          prefixIcon: Icon(Icons.search, color: Color(0xFFEB6D1E)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterBar() {
+    return Container(
+      height: 60,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        children: [
+          _buildFilterChip('Todos'),
+          for (var category in _categories) _buildFilterChip(category['name']),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(label),
+        selected: _selectedFilter == label,
+        onSelected: (bool selected) {
+          setState(() {
+            _selectedFilter = selected ? label : 'Todos';
+          });
+        },
+        backgroundColor: Colors.grey[200],
+        selectedColor: Color(0xFFEB6D1E),
+        labelStyle: TextStyle(
+          color: _selectedFilter == label ? Colors.white : Colors.black,
+        ),
+      ),
+    );
+  }
+
   Widget _buildEventList() {
+    final filteredEvents = _getFilteredEvents();
     return ListView.builder(
       controller: _scrollController,
       padding: EdgeInsets.all(16),
-      itemCount: _events.length + (_isLoading ? 1 : 0),
+      itemCount: filteredEvents.length + (_isLoading ? 1 : 0),
       itemBuilder: (context, index) {
-        if (index == _events.length) {
+        if (index == filteredEvents.length) {
           return Center(child: CircularProgressIndicator());
         }
-        final event = _events[index];
-        return GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => EventDescriptionScreen(
-                  event: event,
-                ),
+        final event = filteredEvents[index];
+        return _buildEventCard(event);
+      },
+    );
+  }
+
+  Widget _buildEventCard(dynamic event) {
+    return Card(
+      elevation: 4,
+      margin: EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => EventDescriptionScreen(event: event),
+            ),
+          );
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+              child: Image.network(
+                event['event_image'],
+                height: 150,
+                width: double.infinity,
+                fit: BoxFit.cover,
               ),
-            );
-          },
-          child: Card(
-            margin: EdgeInsets.only(bottom: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Image.network(
-                  event['event_image'],
-                  height: 150,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
-                Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+            Padding(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    event['event_name'],
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 8),
+                  _buildInfoRow(
+                      Icons.calendar_today, _formatDate(event['event_date'])),
+                  SizedBox(height: 4),
+                  _buildInfoRow(Icons.location_on, event['location']),
+                  SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
                     children: [
-                      Text(
-                        event['event_name'],
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
+                      Chip(
+                        label: Text(event['category_name']),
+                        backgroundColor: Color(0xFFEB6D1E).withOpacity(0.2),
+                        labelStyle: TextStyle(color: Color(0xFFEB6D1E)),
                       ),
-                      SizedBox(height: 8),
-                      Text('Fecha: ${event['event_date']}',
-                          style:
-                              TextStyle(fontSize: 14, color: Colors.grey[600])),
-                      SizedBox(height: 8),
-                      Text('Ubicación: ${event['location']}',
-                          style:
-                              TextStyle(fontSize: 14, color: Colors.grey[600])),
-                      SizedBox(height: 8),
-                      Text('Categoría: ${event['category_name']}',
-                          style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.blueAccent)),
-                      SizedBox(height: 8),
-                      Text('Organizado por: ${event['workgroup_name']}',
-                          style: TextStyle(
-                              fontSize: 14, color: Colors.green[700])),
-                      SizedBox(height: 8),
-                      Text(
-                        event['event_description'],
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      Chip(
+                        label: Text(event['workgroup_name']),
+                        backgroundColor: Colors.blue.withOpacity(0.2),
+                        labelStyle: TextStyle(color: Colors.blue),
                       ),
                     ],
                   ),
-                ),
-              ],
+                  SizedBox(height: 8),
+                  Text(
+                    event['event_description'],
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
+  }
+
+  Widget _buildInfoRow(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.grey[600]),
+        SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatDate(String dateString) {
+    final date = DateTime.parse(dateString);
+    return DateFormat('d MMMM, y').format(date);
   }
 
   Widget _buildBottomNav() {
@@ -243,7 +343,6 @@ class _HomeScreenState extends State<HomeScreen> {
         BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
         BottomNavigationBarItem(
             icon: Icon(Icons.confirmation_number), label: 'Mis boletos'),
-        BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Favoritos'),
         BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Ajustes'),
       ],
     );
